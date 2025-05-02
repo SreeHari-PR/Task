@@ -1,81 +1,44 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
+import { motion, useScroll, useTransform, useSpring, useMotionValueEvent } from "framer-motion"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { ImageCube } from "@/components/image-cube"
 
 export default function Home() {
-  const [scrollY, setScrollY] = useState(0)
-  const [windowHeight, setWindowHeight] = useState(1)
-  const previousScrollY = useRef(0)
+  const { scrollY } = useScroll()
   const [hasScrolled, setHasScrolled] = useState(false)
+  const [windowHeight, setWindowHeight] = useState(0)
+  const isMobile = useMediaQuery("(max-width: 768px)")
 
-  useEffect(() => {
-    setWindowHeight(window.innerHeight || 1)
-    setScrollY(window.scrollY)
-    previousScrollY.current = window.scrollY
+  // Smooth scroll progress values with spring physics
+  const smoothScrollY = useSpring(scrollY, { stiffness: 100, damping: 30, restDelta: 0.001 })
 
-    let rafId = null
-    let lastTime = 0
-    const fps = 60
-    const interval = 1000 / fps
-
-    // Smooth scroll animation using requestAnimationFrame
-    const smoothScroll = (time) => {
-      rafId = requestAnimationFrame(smoothScroll)
-      if (time - lastTime < interval) return
-      lastTime = time
-
-      const currentScrollY = window.scrollY
-
-      // Detect if user has scrolled
-      if (currentScrollY > 10 && !hasScrolled) {
-        setHasScrolled(true)
-      }
-
-      const scrollDelta = Math.abs(currentScrollY - previousScrollY.current)
-      const lerpFactor = scrollDelta > 30 ? 0.15 : 0.08
-
-      const smoothedScrollY = previousScrollY.current + (currentScrollY - previousScrollY.current) * lerpFactor
-
-      setScrollY(smoothedScrollY)
-      previousScrollY.current = smoothedScrollY
+  // Track if user has scrolled
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    if (latest > 10 && !hasScrolled) {
+      setHasScrolled(true)
     }
-
-    rafId = requestAnimationFrame(smoothScroll)
-
-    const handleResize = () => {
-      setWindowHeight(window.innerHeight || 1)
-    }
-
-    // Set body height to allow scrolling
-    const body = document.body
-    body.style.height = "300vh"
-
-    window.addEventListener("resize", handleResize)
-
-    return () => {
-      if (rafId) {
-        cancelAnimationFrame(rafId)
-      }
-      window.removeEventListener("resize", handleResize)
-    }
-  }, [hasScrolled])
+  })
 
   // Calculate section transitions based on scroll position
-  const firstToSecondProgress = Math.min(Math.max(scrollY / windowHeight, 0), 1)
-  const secondToThirdProgress = Math.min(Math.max((scrollY - windowHeight) / windowHeight, 0), 1)
-
-  // Calculate section opacities for smooth transitions
-  const firstSectionOpacity = Math.min(Math.max(1 - firstToSecondProgress * 1.5, 0), 1)
-  const secondSectionOpacity = Math.min(
-    Math.max(firstToSecondProgress * 2 - 0.5, 0),
-    Math.max(1 - secondToThirdProgress * 1.5, 0),
+  const firstSectionOpacity = useTransform(smoothScrollY, [0, windowHeight * 0.8], [1, 0])
+  const secondSectionOpacity = useTransform(
+    smoothScrollY,
+    [windowHeight * 0.2, windowHeight * 0.8, windowHeight * 1.2, windowHeight * 1.8],
+    [0, 1, 1, 0],
   )
-  const thirdSectionOpacity = Math.min(Math.max(secondToThirdProgress * 2 - 0.5, 0), 1)
+  const thirdSectionOpacity = useTransform(smoothScrollY, [windowHeight * 1.2, windowHeight * 1.8], [0, 1])
 
-  // Visibility states for performance
-  const firstSectionVisibility = firstSectionOpacity > 0.01 ? "visible" : "hidden"
-  const secondSectionVisibility = secondSectionOpacity > 0.01 ? "visible" : "hidden"
-  const thirdSectionVisibility = thirdSectionOpacity > 0.01 ? "visible" : "hidden"
+  // Calculate progress for animations
+  const firstToSecondProgress = useTransform(smoothScrollY, [0, windowHeight], [0, 1])
+  const secondToThirdProgress = useTransform(smoothScrollY, [windowHeight, windowHeight * 2], [0, 1])
+
+  // Determine if we're in the second section
+  const isInSecondSection = useTransform(
+    smoothScrollY,
+    (value) => value >= windowHeight * 0.8 && value <= windowHeight * 1.2,
+  )
 
   // Sample image URLs for the cubes
   const cubeImages = [
@@ -87,41 +50,66 @@ export default function Home() {
     "/placeholder.svg?height=300&width=300&text=Innovation",
   ]
 
+  useEffect(() => {
+    setWindowHeight(window.innerHeight)
+
+    const handleResize = () => {
+      setWindowHeight(window.innerHeight)
+    }
+
+    // Set body height to allow scrolling
+    document.body.style.height = "300vh"
+
+    window.addEventListener("resize", handleResize)
+    return () => window.removeEventListener("resize", handleResize)
+  }, [])
+
   return (
     <div className="relative">
       {/* First Section - Hero with Logo */}
-      <section
+      <motion.section
         className="flex min-h-screen flex-col items-center justify-center bg-[#2D1A0C] text-white p-4 fixed w-full"
         style={{
           opacity: firstSectionOpacity,
-          visibility: firstSectionVisibility,
-          transition: "opacity 0.8s cubic-bezier(0.33, 1, 0.68, 1)",
-          willChange: "opacity, transform",
+          pointerEvents: hasScrolled ? "none" : "auto",
         }}
       >
         <div className="flex flex-col items-center justify-center max-w-3xl text-center">
-          <div className="mb-8">
-            <Logo scrollY={scrollY} progress={firstToSecondProgress} hasScrolled={hasScrolled} images={cubeImages} />
+          <div className="mb-8 relative h-32 w-full">
+            <LogoCubes progress={firstToSecondProgress} hasScrolled={hasScrolled} images={cubeImages} />
           </div>
-          <h1 className="text-3xl md:text-5xl font-serif font-normal leading-tight">
+          <motion.h1
+            className="text-3xl md:text-5xl font-serif font-normal leading-tight"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.8 }}
+          >
             The First Media Company crafted For the <span className="block">Digital First generation</span>
-          </h1>
+          </motion.h1>
         </div>
-      </section>
+      </motion.section>
 
       {/* Second Section - Content with Background Cubes */}
-      <section
+      <motion.section
         className="flex min-h-screen flex-col items-center justify-center bg-[#2D1A0C] text-white p-4 fixed w-full"
         style={{
           opacity: secondSectionOpacity,
-          visibility: secondSectionVisibility,
-          transition: "opacity 0.8s cubic-bezier(0.33, 1, 0.68, 1)",
-          willChange: "opacity, transform",
+          pointerEvents: hasScrolled ? "auto" : "none",
         }}
       >
         <div className="relative w-full max-w-6xl mx-auto h-screen flex items-center justify-center">
-          <CubesOnFourSides progress={firstToSecondProgress} hasScrolled={hasScrolled} images={cubeImages} />
-          <div className="flex flex-col items-center justify-center max-w-xl text-center z-10 px-4">
+          <BackgroundCubes
+            progress={firstToSecondProgress}
+            hasScrolled={hasScrolled}
+            images={cubeImages}
+            isSecondSection={true}
+          />
+          <motion.div
+            className="flex flex-col items-center justify-center max-w-xl text-center z-10 px-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+          >
             <h2 className="text-3xl md:text-4xl font-serif font-normal leading-tight mb-6">
               Where innovation meets precision.
             </h2>
@@ -130,626 +118,106 @@ export default function Home() {
               seamlessly to transform challenges into opportunities. Together, we deliver tailored solutions that drive
               impact and inspire growth.
             </p>
-          </div>
+          </motion.div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Third Section - Light Background */}
-      <section
+      <motion.section
         className="flex min-h-screen flex-col items-center justify-center bg-[#fff3eb] text-white p-4 fixed w-full"
         style={{
           opacity: thirdSectionOpacity,
-          visibility: thirdSectionVisibility,
-          transition: "opacity 0.8s cubic-bezier(0.33, 1, 0.68, 1)",
-          willChange: "opacity, transform",
+          pointerEvents: hasScrolled ? "auto" : "none",
         }}
       >
-        <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center text-center">
-          <h2 className="text-3xl md:text-4xl font-serif font-normal leading-tight mb-6 text-black">next page </h2>
+        <div className="w-full max-w-4xl mx-auto flex flex-col items-center justify-center text-center p-4 md:p-8">
+          <motion.h2
+            className="text-3xl md:text-4xl font-serif font-normal leading-tight mb-6 text-black"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            viewport={{ once: true }}
+          >
+           Your next section Goes here
+          </motion.h2>
         </div>
-      </section>
+      </motion.section>
     </div>
   )
 }
 
-function CubesOnFourSides({ progress, hasScrolled, images }) {
-  const showCubes = progress > 0.5
-  const opacity = Math.min(Math.max((progress - 0.5) * 2, 0), 1)
-  const [isLoaded, setIsLoaded] = useState(false)
-
-  useEffect(() => {
-    setIsLoaded(true)
-  }, [])
-
-  const baseCubeSize = 42
-  const cubeSize = baseCubeSize + baseCubeSize * progress
-
+function LogoCubes({ progress, hasScrolled, images }) {
+  // Cube positions for the logo formation
   const cubePositions = [
-    { top: "8%", left: "25%", isRotated: false, delay: 100, imageIndex: 0 },
-    { top: "8%", right: "25%", isRotated: false, delay: 200, imageIndex: 1 },
-    { top: "50%", right: "8%", isRotated: false, delay: 300, transitionToSquare: true, imageIndex: 2 },
-    { bottom: "8%", left: "25%", isRotated: false, delay: 400, imageIndex: 3 },
-    { bottom: "8%", right: "25%", isRotated: false, delay: 500, imageIndex: 4 },
-    { top: "50%", left: "8%", isRotated: false, delay: 600, transitionToSquare: true, imageIndex: 5 },
+    { x: -30, y: -15, z: 0, rotated: true },
+    { x: 0, y: -15, z: 0, rotated: false },
+    { x: 30, y: -15, z: 0, rotated: true },
+    { x: -30, y: 15, z: 0, rotated: false },
+    { x: 0, y: 15, z: 0, rotated: false },
+    { x: 30, y: 15, z: 0, rotated: false },
   ]
 
   return (
-    <div className="absolute inset-0">
-      {cubePositions.map((position, index) => (
-        <div
-          key={index}
-          className="absolute transition-all duration-1000 ease-out"
-          style={{
-            ...position,
-            transform: position.top === "50%" ? "translateY(-50%)" : "",
-            opacity: showCubes ? opacity : 0,
-            transitionDelay: `${position.delay}ms`,
-            transition: "all 1s cubic-bezier(0.16, 1, 0.3, 1)",
-            willChange: "transform, opacity",
-          }}
-        >
-          <div
-            className="cube perspective-800"
-            style={{
-              width: `${cubeSize}px`,
-              height: `${cubeSize}px`,
-              transform: position.isRotated
-                ? `rotate(45deg) scale(${1 + progress * 0.3})`
-                : position.transitionToSquare
-                  ? `rotate(${45 - progress * 45}deg) scale(${1 + progress * 0.3})`
-                  : `scale(${1 + progress * 0.3})`,
-              transition:
-                "transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), width 0.8s cubic-bezier(0.16, 1, 0.3, 1), height 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-              willChange: "transform, width, height",
-            }}
-          >
-            <div
-              className="cube-face cube-face-front"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[position.imageIndex % images.length]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-back"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[(position.imageIndex + 1) % images.length]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-right"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[(position.imageIndex + 2) % images.length]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-left"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[(position.imageIndex + 3) % images.length]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-top"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[(position.imageIndex + 4) % images.length]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-bottom"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[(position.imageIndex + 5) % images.length]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-          </div>
-        </div>
-      ))}
+    <div className="relative w-full h-full flex items-center justify-center">
+      <div className="grid grid-cols-3 gap-3">
+        {cubePositions.map((pos, index) => (
+          <ImageCube
+            key={index}
+            index={index}
+            hasScrolled={hasScrolled}
+            imageUrl={hasScrolled ? images[index % images.length] : null}
+            progress={progress}
+            rotated={pos.rotated}
+            isSecondSection={false}
+          />
+        ))}
+      </div>
     </div>
   )
 }
 
-function Logo({ scrollY = 0, progress = 0, hasScrolled = false, images = [] }) {
-  const [isLoaded, setIsLoaded] = useState(false)
-
-  useEffect(() => {
-    setIsLoaded(true)
-  }, [])
-
-  const getTransform = (index, isRotated = false) => {
-    const yMultiplier = [0.05, 0.02, 0.05, 0.08, 0.1, 0.08][index] * 0.5
-    const zMultiplier = [-0.1, -0.05, -0.1, -0.02, -0.01, -0.02][index] * 0.5
-    const rotateXDeg = scrollY * 0.025
-    const rotateYDeg = scrollY * 0.015
-    const xOffset = progress * 100 * (index % 3 === 0 ? -1 : index % 3 === 2 ? 1 : 0)
-    const yOffset = scrollY * yMultiplier + progress * 50 * (index < 3 ? -1 : 1)
-    const scale = 1 + progress * 0.5
-
-    let baseTransform = `translateX(${xOffset}px) translateY(${yOffset}px) translateZ(${scrollY * zMultiplier}px) rotateX(${rotateXDeg}deg) rotateY(${rotateYDeg}deg) scale(${scale})`
-
-    if (isRotated) {
-      baseTransform += " rotate(45deg)"
-    }
-
-    return baseTransform
-  }
-
-  const baseCubeSize = 28
-  const cubeSize = baseCubeSize * (1 + progress * 0.5)
+function BackgroundCubes({ progress, hasScrolled, images, isSecondSection }) {
+  // Grid layout for properly aligned squares in second section
+  const gridLayout = [
+    // Top row
+    { gridColumn: "1 / 2", gridRow: "1 / 2" },
+    { gridColumn: "2 / 3", gridRow: "1 / 2" },
+    { gridColumn: "3 / 4", gridRow: "1 / 2" },
+    // Bottom row
+    { gridColumn: "1 / 2", gridRow: "2 / 3" },
+    { gridColumn: "2 / 3", gridRow: "2 / 3" },
+    { gridColumn: "3 / 4", gridRow: "2 / 3" },
+  ]
 
   return (
-    <div className="relative w-40 h-32 group cursor-pointer perspective-800">
-      <div className="absolute flex items-center justify-center w-full">
-        <div className="flex items-center">
-          <div
-            className={`cube transition-all duration-700 ease-out
-              ${isLoaded ? "opacity-100" : "opacity-0"}`}
-            style={{
-              transform: getTransform(0, true),
-              transitionDelay: "100ms",
-              width: `${cubeSize}px`,
-              height: `${cubeSize}px`,
-              transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-              willChange: "transform, width, height",
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div className="grid grid-cols-3 gap-8 w-full max-w-2xl p-4 md:p-8">
+        {gridLayout.map((position, index) => (
+          <motion.div
+            key={index}
+            className="relative"
+            style={position}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{
+              opacity: hasScrolled ? 1 : 0,
+              scale: hasScrolled ? 1 : 0.8,
+            }}
+            transition={{
+              delay: index * 0.1,
+              duration: 0.8,
+              ease: [0.16, 1, 0.3, 1],
             }}
           >
-            <div
-              className="cube-face cube-face-front"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[0]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-back"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[1]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-right"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[2]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-left"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[3]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-top"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[4]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-bottom"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[5]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-          </div>
-
-          <div
-            className={`cube mx-3 transition-all duration-700 ease-out
-              ${isLoaded ? "opacity-100" : "opacity-0"}`}
-            style={{
-              transform: getTransform(1),
-              transitionDelay: "200ms",
-              width: `${cubeSize}px`,
-              height: `${cubeSize}px`,
-              transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-              willChange: "transform, width, height",
-            }}
-          >
-            <div
-              className="cube-face cube-face-front"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[1]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-back"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[2]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-right"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[3]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-left"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[4]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-top"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[5]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-bottom"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[0]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-          </div>
-
-          <div
-            className={`cube transition-all duration-700 ease-out
-              ${isLoaded ? "opacity-100" : "opacity-0"}`}
-            style={{
-              transform: getTransform(2, true),
-              transitionDelay: "300ms",
-              width: `${cubeSize}px`,
-              height: `${cubeSize}px`,
-              transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-              willChange: "transform, width, height",
-            }}
-          >
-            <div
-              className="cube-face cube-face-front"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[2]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-back"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[3]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-right"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[4]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-left"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[5]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-top"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[0]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-bottom"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[1]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute bottom-0 flex items-center justify-center w-full">
-        <div className="flex space-x-3">
-          <div
-            className={`cube transition-all duration-700 ease-out
-              ${isLoaded ? "opacity-100" : "opacity-0"}`}
-            style={{
-              transform: getTransform(3),
-              transitionDelay: "400ms",
-              width: `${cubeSize}px`,
-              height: `${cubeSize}px`,
-              transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-              willChange: "transform, width, height",
-            }}
-          >
-            <div
-              className="cube-face cube-face-front"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[3]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-back"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[4]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-right"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[5]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-left"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[0]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-top"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[1]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-bottom"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[2]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-          </div>
-
-          <div
-            className={`cube transition-all duration-700 ease-out
-              ${isLoaded ? "opacity-100" : "opacity-0"}`}
-            style={{
-              transform: getTransform(4),
-              transitionDelay: "500ms",
-              width: `${cubeSize}px`,
-              height: `${cubeSize}px`,
-              transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-              willChange: "transform, width, height",
-            }}
-          >
-            <div
-              className="cube-face cube-face-front"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[4]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-back"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[5]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-right"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[0]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-left"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[1]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-top"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[2]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-bottom"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[3]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-          </div>
-
-          <div
-            className={`cube transition-all duration-700 ease-out
-              ${isLoaded ? "opacity-100" : "opacity-0"}`}
-            style={{
-              transform: getTransform(5),
-              transitionDelay: "600ms",
-              width: `${cubeSize}px`,
-              height: `${cubeSize}px`,
-              transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-              willChange: "transform, width, height",
-            }}
-          >
-            <div
-              className="cube-face cube-face-front"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[5]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-back"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[0]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-right"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[1]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-left"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[2]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-top"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[3]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-            <div
-              className="cube-face cube-face-bottom"
-              style={{
-                transition: "all 0.8s cubic-bezier(0.16, 1, 0.3, 1)",
-                willChange: "transform",
-                backgroundImage: hasScrolled ? `url(${images[4]})` : "none",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }}
-            ></div>
-          </div>
-        </div>
+            <ImageCube
+              index={index}
+              hasScrolled={hasScrolled}
+              imageUrl={hasScrolled ? images[index % images.length] : null}
+              progress={progress}
+              size={80}
+              isSecondSection={isSecondSection}
+            />
+          </motion.div>
+        ))}
       </div>
     </div>
   )
