@@ -30,24 +30,20 @@ export default function Home() {
   )
   const thirdSectionOpacity = useTransform(smoothScrollY, [windowHeight * 1.2, windowHeight * 1.8], [0, 1])
 
-  // Calculate progress for animations
-  const firstToSecondProgress = useTransform(smoothScrollY, [0, windowHeight], [0, 1])
-  const secondToThirdProgress = useTransform(smoothScrollY, [windowHeight, windowHeight * 2], [0, 1])
+  // Calculate progress for animations with smoother transition
+  const firstToSecondProgress = useTransform(smoothScrollY, [windowHeight * 0.3, windowHeight * 0.8], [0, 1], {
+    clamp: true,
+  })
+  const secondToThirdProgress = useTransform(smoothScrollY, [windowHeight, windowHeight * 2], [0, 1], { clamp: true })
 
-  // Determine if we're in the second section
-  const isInSecondSection = useTransform(
-    smoothScrollY,
-    (value) => value >= windowHeight * 0.8 && value <= windowHeight * 1.2,
-  )
-
-  // Sample image URLs for the cubes
+  // Sample image URLs for the cubes - will be replaced with actual images
   const cubeImages = [
-    "/placeholder.svg?height=300&width=300",
-    "/placeholder.svg?height=300&width=300&text=Media",
-    "/placeholder.svg?height=300&width=300&text=Content",
-    "/placeholder.svg?height=300&width=300&text=Digital",
-    "/placeholder.svg?height=300&width=300&text=Creative",
-    "/placeholder.svg?height=300&width=300&text=Innovation",
+    "/placeholder.svg?height=300&width=300&text=Blue",
+    "/placeholder.svg?height=300&width=300&text=Pink",
+    "/placeholder.svg?height=300&width=300&text=Gray",
+    "/placeholder.svg?height=300&width=300&text=Green",
+    "/placeholder.svg?height=300&width=300&text=Purple",
+    "/placeholder.svg?height=300&width=300&text=Dark",
   ]
 
   useEffect(() => {
@@ -98,12 +94,124 @@ export default function Home() {
         }}
       >
         <div className="relative w-full max-w-6xl mx-auto h-screen flex items-center justify-center">
-          <BackgroundCubes
-            progress={firstToSecondProgress}
-            hasScrolled={hasScrolled}
-            images={cubeImages}
-            isSecondSection={true}
-          />
+          {/* Top row squares */}
+          <div className="absolute top-[15%] left-[25%] transform -translate-x-1/2">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: hasScrolled ? 1 : 0, scale: hasScrolled ? 1 : 0.8 }}
+              transition={{ delay: 0.1, duration: 0.8 }}
+            >
+              <ImageCube
+                index={0}
+                hasScrolled={hasScrolled}
+                imageUrl="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-R4ZBP9niPs21tUXLghfP4as7d7RWTd.png"
+                progress={firstToSecondProgress}
+                size={120}
+                isSecondSection={true}
+                customImage={true}
+                imagePosition="top-left"
+              />
+            </motion.div>
+          </div>
+
+          <div className="absolute top-[15%] right-[25%] transform translate-x-1/2">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: hasScrolled ? 1 : 0, scale: hasScrolled ? 1 : 0.8 }}
+              transition={{ delay: 0.2, duration: 0.8 }}
+            >
+              <ImageCube
+                index={1}
+                hasScrolled={hasScrolled}
+                imageUrl="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-R4ZBP9niPs21tUXLghfP4as7d7RWTd.png"
+                progress={firstToSecondProgress}
+                size={120}
+                isSecondSection={true}
+                customImage={true}
+                imagePosition="top-right"
+              />
+            </motion.div>
+          </div>
+
+          {/* Middle row squares */}
+          <div className="absolute top-1/2 left-[15%] transform -translate-y-1/2">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: hasScrolled ? 1 : 0, scale: hasScrolled ? 1 : 0.8 }}
+              transition={{ delay: 0.3, duration: 0.8 }}
+            >
+              <ImageCube
+                index={2}
+                hasScrolled={hasScrolled}
+                imageUrl="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-R4ZBP9niPs21tUXLghfP4as7d7RWTd.png"
+                progress={firstToSecondProgress}
+                size={120}
+                isSecondSection={true}
+                customImage={true}
+                imagePosition="middle-left"
+              />
+            </motion.div>
+          </div>
+
+          <div className="absolute top-1/2 right-[15%] transform -translate-y-1/2">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: hasScrolled ? 1 : 0, scale: hasScrolled ? 1 : 0.8 }}
+              transition={{ delay: 0.4, duration: 0.8 }}
+            >
+              <ImageCube
+                index={3}
+                hasScrolled={hasScrolled}
+                imageUrl="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-R4ZBP9niPs21tUXLghfP4as7d7RWTd.png"
+                progress={firstToSecondProgress}
+                size={120}
+                isSecondSection={true}
+                customImage={true}
+                imagePosition="middle-right"
+              />
+            </motion.div>
+          </div>
+
+          {/* Bottom row squares */}
+          <div className="absolute bottom-[15%] left-[25%] transform -translate-x-1/2">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: hasScrolled ? 1 : 0, scale: hasScrolled ? 1 : 0.8 }}
+              transition={{ delay: 0.5, duration: 0.8 }}
+            >
+              <ImageCube
+                index={4}
+                hasScrolled={hasScrolled}
+                imageUrl="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-R4ZBP9niPs21tUXLghfP4as7d7RWTd.png"
+                progress={firstToSecondProgress}
+                size={120}
+                isSecondSection={true}
+                customImage={true}
+                imagePosition="bottom-left"
+              />
+            </motion.div>
+          </div>
+
+          <div className="absolute bottom-[15%] right-[25%] transform translate-x-1/2">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: hasScrolled ? 1 : 0, scale: hasScrolled ? 1 : 0.8 }}
+              transition={{ delay: 0.6, duration: 0.8 }}
+            >
+              <ImageCube
+                index={5}
+                hasScrolled={hasScrolled}
+                imageUrl="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-R4ZBP9niPs21tUXLghfP4as7d7RWTd.png"
+                progress={firstToSecondProgress}
+                size={120}
+                isSecondSection={true}
+                customImage={true}
+                imagePosition="bottom-right"
+              />
+            </motion.div>
+          </div>
+
+          {/* Central text content */}
           <motion.div
             className="flex flex-col items-center justify-center max-w-xl text-center z-10 px-4"
             initial={{ opacity: 0 }}
@@ -114,9 +222,9 @@ export default function Home() {
               Where innovation meets precision.
             </h2>
             <p className="text-base md:text-lg">
-              Our company unites visionary thinkers, creative architects, and analytical experts, collaborating
-              seamlessly to transform challenges into opportunities. Together, we deliver tailored solutions that drive
-              impact and inspire growth.
+              Symphonia unites visionary thinkers, creative architects, and analytical experts, collaborating seamlessly
+              to transform challenges into opportunities. Together, we deliver tailored solutions that drive impact and
+              inspire growth.
             </p>
           </motion.div>
         </div>
@@ -138,7 +246,7 @@ export default function Home() {
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
           >
-           Your next section Goes here
+            Our Services
           </motion.h2>
         </div>
       </motion.section>
@@ -170,53 +278,6 @@ function LogoCubes({ progress, hasScrolled, images }) {
             rotated={pos.rotated}
             isSecondSection={false}
           />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function BackgroundCubes({ progress, hasScrolled, images, isSecondSection }) {
-  // Grid layout for properly aligned squares in second section
-  const gridLayout = [
-    // Top row
-    { gridColumn: "1 / 2", gridRow: "1 / 2" },
-    { gridColumn: "2 / 3", gridRow: "1 / 2" },
-    { gridColumn: "3 / 4", gridRow: "1 / 2" },
-    // Bottom row
-    { gridColumn: "1 / 2", gridRow: "2 / 3" },
-    { gridColumn: "2 / 3", gridRow: "2 / 3" },
-    { gridColumn: "3 / 4", gridRow: "2 / 3" },
-  ]
-
-  return (
-    <div className="absolute inset-0 flex items-center justify-center">
-      <div className="grid grid-cols-3 gap-8 w-full max-w-2xl p-4 md:p-8">
-        {gridLayout.map((position, index) => (
-          <motion.div
-            key={index}
-            className="relative"
-            style={position}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{
-              opacity: hasScrolled ? 1 : 0,
-              scale: hasScrolled ? 1 : 0.8,
-            }}
-            transition={{
-              delay: index * 0.1,
-              duration: 0.8,
-              ease: [0.16, 1, 0.3, 1],
-            }}
-          >
-            <ImageCube
-              index={index}
-              hasScrolled={hasScrolled}
-              imageUrl={hasScrolled ? images[index % images.length] : null}
-              progress={progress}
-              size={80}
-              isSecondSection={isSecondSection}
-            />
-          </motion.div>
         ))}
       </div>
     </div>
